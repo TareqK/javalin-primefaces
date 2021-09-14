@@ -52,35 +52,35 @@ public class JavalinPrimefacesPlugin implements Plugin {
 
     @Override
     public void apply(Javalin app) {
-        app.config.server(() -> {
-            Server server = new Server();
-            WebAppContext webappContext = generateWebAppContext();
-            config.parameters.entrySet().forEach(entry -> {
-                webappContext.setInitParameter(entry.getKey(), entry.getValue());
+        app.events(event -> {
+            event.serverStarting(() -> {
+                Server server = app.jettyServer().server();
+                WebAppContext webappContext = generateWebAppContext();
+                config.parameters.entrySet().forEach(entry -> {
+                    webappContext.setInitParameter(entry.getKey(), entry.getValue());
+                });
+                if (config.isDev()) {
+                    webappContext.setInitParameter(ProjectStage.PROJECT_STAGE_PARAM_NAME, ProjectStage.Development.name());
+                }
+                webappContext.setAttribute("javalinPrimefaces", this);
+                webappContext.setContextPath(config.primefacesPath());
+                /**
+                 * Need to declare that we added the Faces Servlet Dynamically
+                 * instead of through a web.xml or faces-config.xml. This
+                 * property, and how it works, can be found here
+                 *
+                 * https://github.com/apache/myfaces/blob/114fd7af5c42865c48ef0d98e185dd102e2b9395/impl/src/main/java/org/apache/myfaces/webapp/FacesInitializerImpl.java#L167
+                 */
+                webappContext.setAttribute(FACES_SERVLET_ADDED_ATTRIBUTE, Boolean.TRUE);
+                ServletHolder jsfServlet = generateJsfServlet();
+                webappContext.addServlet(jsfServlet, "*.xhtml");
+                webappContext.setWelcomeFiles(new String[]{"index.xhtml"});
+                ContextHandlerCollection handlers = new ContextHandlerCollection();
+                handlers.setHandlers(new Handler[]{webappContext});
+                server.setHandler(handlers);
+                webappContext.addEventListener(new StartupServletContextListener());
             });
-            if (config.isDev()) {
-                webappContext.setInitParameter(ProjectStage.PROJECT_STAGE_PARAM_NAME, ProjectStage.Development.name());
-            }
-            webappContext.setAttribute("javalinPrimefaces", this);
-            webappContext.setContextPath(config.primefacesPath());
-            /**
-             * Need to declare that we added the Faces Servlet Dynamically
-             * instead of through a web.xml or faces-config.xml. This property,
-             * and how it works, can be found here
-             *
-             * https://github.com/apache/myfaces/blob/114fd7af5c42865c48ef0d98e185dd102e2b9395/impl/src/main/java/org/apache/myfaces/webapp/FacesInitializerImpl.java#L167
-             */
-            webappContext.setAttribute(FACES_SERVLET_ADDED_ATTRIBUTE, Boolean.TRUE);
-            ServletHolder jsfServlet = generateJsfServlet();
-            webappContext.addServlet(jsfServlet, "*.xhtml");
-            webappContext.setWelcomeFiles(new String[]{"index.xhtml"});
-            ContextHandlerCollection handlers = new ContextHandlerCollection();
-            handlers.setHandlers(new Handler[]{webappContext});
-            server.setHandler(handlers);
-            webappContext.addEventListener(new StartupServletContextListener());
-            return server;
         });
-
     }
 
     /**
